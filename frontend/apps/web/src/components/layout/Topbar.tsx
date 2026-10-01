@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, Search, Bell, ChevronDown, User, LogOut, ShieldAlert, HeartPulse, GraduationCap, Landmark, Briefcase, Shield } from 'lucide-react';
-import { useRoleContext } from '../../hooks/useRoleContext';
+import { useRoleContext, deriveUserRole } from '../../hooks/useRoleContext';
 import { UserRole } from '../../types';
 import { Button } from '../ui/Button';
 
@@ -14,9 +14,13 @@ interface TopbarProps {
 
 export function Topbar({ onToggleMobileSidebar }: TopbarProps) {
   const pathname = usePathname();
-  const { currentUser, switchRole } = useRoleContext();
+  const { currentUser, switchRole, logout, memberships } = useRoleContext();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const handleSignOut = async () => {
+    await logout();
+  };
 
   const getPageTitle = (path: string) => {
     if (path.startsWith('/dashboard')) return 'Dashboard Overview';
@@ -35,6 +39,14 @@ export function Topbar({ onToggleMobileSidebar }: TopbarProps) {
     { role: 'EMPLOYER', label: 'Employer / Enterprise', icon: <Briefcase className="w-4 h-4 text-indigo-600" /> },
     { role: 'ADMIN', label: 'Network Administrator', icon: <Shield className="w-4 h-4 text-slate-600" /> },
   ];
+
+  const userRole = currentUser?.role || 'CITIZEN';
+
+  const availableRoles = roles.filter((r) => {
+    if (!currentUser) return false;
+    if (r.role === userRole) return true;
+    return memberships.some((m) => deriveUserRole(undefined, m.organization?.domain) === r.role);
+  });
 
   return (
     <header className="h-16 border-b border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between">
@@ -58,24 +70,24 @@ export function Topbar({ onToggleMobileSidebar }: TopbarProps) {
 
       {/* Right Controls */}
       <div className="flex items-center gap-2.5">
-        {/* Role Switcher Dropdown (Demo Purpose) */}
+        {/* Role Switcher Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowRoleMenu(!showRoleMenu)}
             className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700/80 rounded-md border border-slate-200/80 dark:border-slate-700 text-sm font-medium text-slate-800 dark:text-slate-200 transition-colors"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="hidden sm:inline">Switch Role:</span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100">{currentUser.role}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <span className="hidden sm:inline">Active Role:</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">{userRole}</span>
+            {availableRoles.length > 1 && <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
           </button>
 
-          {showRoleMenu && (
+          {showRoleMenu && availableRoles.length > 0 && (
             <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl py-1.5 z-50 animate-fade-in">
               <div className="px-3 py-1.5 text-xs font-semibold uppercase text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
-                Simulate Organization Domain
+                Authorized Domains
               </div>
-              {roles.map((r) => (
+              {availableRoles.map((r) => (
                 <button
                   key={r.role}
                   onClick={() => {
@@ -83,7 +95,7 @@ export function Topbar({ onToggleMobileSidebar }: TopbarProps) {
                     setShowRoleMenu(false);
                   }}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-slate-50 dark:hover:bg-slate-800/80 ${
-                    currentUser.role === r.role ? 'font-semibold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'
+                    userRole === r.role ? 'font-semibold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'
                   }`}
                 >
                   {r.icon}
@@ -129,7 +141,7 @@ export function Topbar({ onToggleMobileSidebar }: TopbarProps) {
         </div>
 
         {/* User Profile / Logout */}
-        <Link href="/login">
+        <Link href="/login" onClick={handleSignOut}>
           <Button variant="outline" size="sm" className="text-xs gap-1.5">
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sign Out</span>

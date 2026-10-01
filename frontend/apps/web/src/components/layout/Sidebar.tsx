@@ -29,7 +29,9 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const { currentUser } = useRoleContext();
-  const domainBadge = getDomainBadgeStyle(currentUser.role);
+  const userRole = currentUser?.role || 'CITIZEN';
+  const orgName = currentUser?.organizationName || 'Unaffiliated Citizen';
+  const domainBadge = getDomainBadgeStyle(userRole);
 
   const getDomainIcon = (role: string) => {
     switch (role) {
@@ -86,18 +88,18 @@ export function Sidebar({ isOpen, onCloseMobile }: SidebarProps) {
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Active Context
           </span>
-          {getDomainIcon(currentUser.role)}
+          {getDomainIcon(userRole)}
         </div>
         <div className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 rounded-md">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-            {currentUser.organizationName}
+            {orgName}
           </p>
           <div className="mt-1 flex items-center justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-              {currentUser.role}
+              {userRole}
             </span>
             <Badge variant="neutral" size="sm" className={cn('text-xs py-0 px-1.5', domainBadge.bg, domainBadge.text, domainBadge.border)}>
-              {currentUser.role === 'HOSPITAL' ? 'Healthcare Provider' : domainBadge.label.split('/')[0]}
+              {userRole === 'HOSPITAL' ? 'Healthcare Provider' : domainBadge.label.split('/')[0]}
             </Badge>
           </div>
         </div>
@@ -135,7 +137,7 @@ export function Sidebar({ isOpen, onCloseMobile }: SidebarProps) {
       <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 text-xs">
         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
           <Activity className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-          <span className="text-[11px] font-medium">Network Status: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Healthy (Demo)</span></span>
+          <span className="text-[11px] font-medium">Network Status: <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Operational</span></span>
         </div>
       </div>
     </aside>

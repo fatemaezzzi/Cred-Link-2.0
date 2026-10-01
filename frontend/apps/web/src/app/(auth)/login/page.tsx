@@ -1,75 +1,57 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, ShieldCheck, ArrowRight, Lock, Building2, HeartPulse, GraduationCap, Landmark, Briefcase, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Badge } from '../../../components/ui/Badge';
-import { UserRole } from '../../../types';
 import { useRoleContext } from '../../../hooks/useRoleContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { switchRole } = useRoleContext();
+  const { login, error: authContextError, clearError } = useRoleContext();
 
-  const [email, setEmail] = useState('admin@credlink.network');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('HOSPITAL');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setLocalError('');
+    clearError();
 
     if (!email || !email.includes('@')) {
-      setError('Please enter a valid organization email address.');
+      setLocalError('Please enter a valid organization email address.');
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 1) {
+      setLocalError('Password is required.');
       return;
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      switchRole(selectedRole);
+    try {
+      const success = await login({ email, password });
+      if (success) {
+        router.push('/dashboard');
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setLocalError(err.message);
+      } else {
+        setLocalError('Authentication failed. Please check your credentials.');
+      }
+    } finally {
       setIsLoading(false);
-      router.push('/dashboard');
-    }, 600);
+    }
   };
 
-  const domainOptions: { role: UserRole; title: string; desc: string; icon: React.ReactNode }[] = [
-    {
-      role: 'HOSPITAL',
-      title: 'Healthcare Provider',
-      desc: 'Issue & verify immunization & insurance credentials',
-      icon: <HeartPulse className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-    },
-    {
-      role: 'COLLEGE',
-      title: 'College / Education',
-      desc: 'Issue degrees & verified academic transcripts',
-      icon: <GraduationCap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-    },
-    {
-      role: 'BANK',
-      title: 'Bank & Financial',
-      desc: 'KYC & income claim selective verification',
-      icon: <Landmark className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-    },
-    {
-      role: 'EMPLOYER',
-      title: 'Employer Enterprise',
-      desc: 'Issue employment records & verify background claims',
-      icon: <Briefcase className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-    }
-  ];
+  const displayError = authContextError || localError;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] flex flex-col justify-center py-12 sm:px-6 lg:px-8 antialiased">
@@ -88,46 +70,13 @@ export default function LoginPage() {
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md px-4">
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 py-8 px-6 sm:px-8 shadow-sm rounded-xl">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Domain Selection Pills */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Select Organization Realm
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {domainOptions.map((item) => {
-                  const isSelected = selectedRole === item.role;
-                  return (
-                    <button
-                      key={item.role}
-                      type="button"
-                      onClick={() => setSelectedRole(item.role)}
-                      className={`p-2.5 text-left border rounded-lg transition-all flex flex-col justify-between ${
-                        isSelected
-                          ? 'border-slate-900 bg-slate-50/80 dark:border-slate-100 dark:bg-slate-800/80 shadow-xs'
-                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        {item.icon}
-                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-slate-900 dark:text-slate-100" />}
-                      </div>
-                      <div className="mt-2">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight mt-0.5">{item.desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Email Field */}
             <Input
               label="Organization Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@hospital.org"
+              placeholder="admin@credlink.org"
               required
             />
 
@@ -150,7 +99,7 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Remember me & Forgot Password */}
+            {/* Remember me */}
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 cursor-pointer text-slate-600 dark:text-slate-400">
                 <input
@@ -161,26 +110,26 @@ export default function LoginPage() {
                 />
                 <span>Remember session</span>
               </label>
-              <span className="text-slate-400 cursor-not-allowed">Reset Key?</span>
+              <span className="text-slate-400 text-xs">Protected Portal</span>
             </div>
 
-            {error && (
+            {displayError && (
               <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:border-rose-900 dark:text-rose-400 rounded-md text-sm">
-                {error}
+                {displayError}
               </div>
             )}
 
             {/* Submit Button */}
             <Button type="submit" isLoading={isLoading} className="w-full h-10 mt-2 gap-2 text-sm font-semibold">
-              <span>Sign In to {selectedRole} Portal</span>
+              <span>Sign In to CredLink</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
 
-          {/* Demo notice footer */}
+          {/* Security Notice Footer */}
           <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
             <Badge variant="neutral" size="sm" className="text-xs uppercase font-mono tracking-wider">
-              DEMO MODE — NO REAL CREDENTIAL KEYS EXPOSED
+              PROTECTED — SUPABASE AUTH JWT SESSION
             </Badge>
           </div>
         </div>

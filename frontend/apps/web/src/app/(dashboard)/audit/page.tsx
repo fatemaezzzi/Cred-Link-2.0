@@ -9,14 +9,46 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Input } from '../../../components/ui/Input';
 import { Drawer } from '../../../components/ui/Drawer';
 import { Button } from '../../../components/ui/Button';
-import { MOCK_AUDIT_LOGS } from '../../../lib/mockData';
 import { AuditLogItem } from '../../../types';
 import { getDomainBadgeStyle } from '../../../lib/utils';
+import { apiClient } from '../../../../../../packages/api-client';
 
 export default function AuditPage() {
-  const [logs] = useState<AuditLogItem[]>(MOCK_AUDIT_LOGS);
+  const [logs, setLogs] = useState<AuditLogItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
+
+  React.useEffect(() => {
+    async function loadAuditLogs() {
+      setIsLoading(true);
+      try {
+        const res = await apiClient.listAuditLogs({ limit: 50 });
+        if (res.success && res.data?.logs) {
+          const mappedLogs: AuditLogItem[] = res.data.logs.map((l: any) => ({
+            id: l.id,
+            timestamp: new Date(l.timestamp).toLocaleString(),
+            eventType: l.eventType,
+            action: l.action,
+            domain: l.domain,
+            outcome: l.outcome,
+            actor: l.actor,
+            organization: l.organization,
+            details: l.details || l.action,
+          }));
+          setLogs(mappedLogs);
+        } else {
+          setLogs([]);
+        }
+      } catch (err) {
+        console.warn('Could not load backend audit logs:', err);
+        setLogs([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadAuditLogs();
+  }, []);
 
   const filteredLogs = logs.filter(
     (l) =>
@@ -29,13 +61,17 @@ export default function AuditPage() {
     <Shell>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-            Immutable Network Audit Trail
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Complete event ledger of issuance, verification requests, consent attestations, and trust registry updates.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                Immutable Network Audit Trail
+              </h1>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Complete event ledger of issuance, verification requests, consent attestations, and trust registry updates.
+            </p>
+          </div>
         </div>
 
         {/* Filter */}
@@ -67,7 +103,35 @@ export default function AuditPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLogs.map((log) => {
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-6 h-6 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm">Loading network audit logs...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3 text-slate-400">
+                        <History className="w-6 h-6" />
+                      </div>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                        {searchQuery ? 'No matching audit events' : 'Audit Trail Empty'}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {searchQuery
+                          ? 'Try modifying your search query.'
+                          : 'No immutable audit events have been recorded yet. All network issuance, verification, and consent transactions will be logged here.'}
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredLogs.map((log) => {
                 const domainStyle = getDomainBadgeStyle(log.domain);
                 return (
                   <TableRow key={log.id}>
@@ -108,7 +172,7 @@ export default function AuditPage() {
                     </TableCell>
                   </TableRow>
                 );
-              })}
+              }))}
             </TableBody>
           </Table>
         </Card>

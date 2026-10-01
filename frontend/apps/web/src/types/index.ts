@@ -1,8 +1,8 @@
-export type UserRole = 'COLLEGE' | 'BANK' | 'HOSPITAL' | 'EMPLOYER' | 'ADMIN';
+export type UserRole = 'COLLEGE' | 'BANK' | 'HOSPITAL' | 'EMPLOYER' | 'ADMIN' | 'CITIZEN';
 
 export type CredentialStatus = 'VALID' | 'REVOKED' | 'EXPIRED';
-export type OrgStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
-export type VerificationStatus = 'PENDING' | 'APPROVED' | 'DENIED' | 'EXPIRED';
+export type OrgStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+export type VerificationStatus = 'PENDING' | 'APPROVED' | 'DENIED' | 'REVOKED' | 'EXPIRED';
 
 export interface Organization {
   id: string;
@@ -52,6 +52,9 @@ export interface VerificationRequest {
   status: VerificationStatus;
   createdAt: string;
   expiresAt: string;
+  credentialId?: string;
+  credentialTitle?: string;
+  credentialStatus?: string;
   verificationResult?: {
     verified: boolean;
     timestamp: string;
@@ -62,12 +65,12 @@ export interface VerificationRequest {
 export interface AuditLogItem {
   id: string;
   timestamp: string;
-  eventType: 'CREDENTIAL_ISSUED' | 'CREDENTIAL_REVOKED' | 'VERIFICATION_REQUESTED' | 'VERIFICATION_APPROVED' | 'ORGANIZATION_STATUS_CHANGED' | 'CONSENT_GRANTED';
+  eventType: string;
   organization: string;
   domain: UserRole;
   action: string;
   actor: string;
-  outcome: 'SUCCESS' | 'FAILURE' | 'PENDING';
+  outcome: 'SUCCESS' | 'FAILURE' | 'PENDING' | string;
   details: string;
 }
 
@@ -78,4 +81,10 @@ export interface CurrentUser {
   role: UserRole;
   organizationName: string;
   organizationDid: string;
+  organizationId?: string;
+  organizationCode?: string;
+  organizationDomain?: string;
+  organizationStatus?: OrgStatus;
+  isIssuer?: boolean;
+  authorizedCredentialTypes?: string[];
 }

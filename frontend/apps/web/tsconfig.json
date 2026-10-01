@@ -20,7 +20,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@credlink/api-client": ["../../packages/api-client/index.ts"],
+      "@credlink/shared-types": ["../../packages/shared-types/index.ts"],
+      "@credlink/validation": ["../../packages/validation/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

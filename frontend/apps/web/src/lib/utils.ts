@@ -42,19 +42,25 @@ export function getVerificationStatusBadge(status: VerificationStatus) {
       return { label: 'Awaiting Consent', bg: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border-amber-200 dark:border-amber-800/60' };
     case 'DENIED':
       return { label: 'Denied / Refused', bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200 dark:border-rose-800/60' };
-    case 'EXPIRED':
-      return { label: 'Expired Request', bg: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700' };
+    case 'REVOKED':
+      return { label: 'Consent Revoked', bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200 dark:border-rose-800/60' };
+    default:
+      return { label: status, bg: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700' };
   }
 }
 
 export function getOrgStatusBadge(status: OrgStatus) {
   switch (status) {
     case 'ACTIVE':
+    case 'APPROVED':
       return { label: 'Authorized Issuer', bg: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' };
     case 'SUSPENDED':
-      return { label: 'Suspended', bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200 dark:border-rose-800' };
+    case 'REJECTED':
+      return { label: 'Suspended / Rejected', bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200 dark:border-rose-800' };
     case 'PENDING':
       return { label: 'Pending Approval', bg: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border-amber-200 dark:border-amber-800' };
+    default:
+      return { label: String(status), bg: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
   }
 }
 

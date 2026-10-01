@@ -10,20 +10,56 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Input } from '../../../components/ui/Input';
 import { Drawer } from '../../../components/ui/Drawer';
 import { Dialog } from '../../../components/ui/Dialog';
-import { MOCK_ORGANIZATIONS } from '../../../lib/mockData';
 import { Organization, OrgStatus } from '../../../types';
 import { getOrgStatusBadge, truncateDid, getDomainBadgeStyle } from '../../../lib/utils';
 import { useRoleContext } from '../../../hooks/useRoleContext';
 
+import { apiClient, OrganizationSummary } from '../../../../../../packages/api-client';
+
 export default function TrustRegistryPage() {
   const { currentUser } = useRoleContext();
-  const [orgs, setOrgs] = useState<Organization[]>(MOCK_ORGANIZATIONS);
+  if (!currentUser) return null;
+  const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('ALL');
 
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [statusChangeTarget, setStatusChangeTarget] = useState<Organization | null>(null);
   const [newStatus, setNewStatus] = useState<OrgStatus>('SUSPENDED');
+
+  const loadTrustRegistry = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient.listOrganizations();
+      if (res.success && res.data?.organizations) {
+        const mapped: Organization[] = res.data.organizations.map((o: OrganizationSummary) => ({
+          id: o.id,
+          name: o.name,
+          code: o.code,
+          domain: (o.domain?.toUpperCase() as Organization['domain']) || 'ADMIN',
+          did: o.did,
+          status: ((o.status || o.verification_status) as OrgStatus) || 'ACTIVE',
+          authorizedCredentialTypes: o.authorizedCredentialTypes || o.authorized_credential_types || ['Verifiable Credentials'],
+          issuedCount: 0,
+          verifiedCount: 0,
+          createdAt: o.createdAt || new Date().toISOString(),
+        }));
+        setOrgs(mapped);
+      } else {
+        setOrgs([]);
+      }
+    } catch (err) {
+      console.warn('Failed to load trust registry from backend:', err);
+      setOrgs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadTrustRegistry();
+  }, [loadTrustRegistry]);
 
   const filteredOrgs = orgs.filter((o) => {
     const matchesSearch =
@@ -34,12 +70,23 @@ export default function TrustRegistryPage() {
     return matchesSearch && matchesDomain;
   });
 
-  const handleUpdateOrgStatus = () => {
+  const handleUpdateOrgStatus = async () => {
     if (!statusChangeTarget) return;
-    setOrgs((prev) =>
-      prev.map((o) => (o.id === statusChangeTarget.id ? { ...o, status: newStatus } : o))
-    );
-    setStatusChangeTarget(null);
+    if (currentUser.role !== 'ADMIN') {
+      alert('Forbidden: Only Network Administrators can perform status updates.');
+      return;
+    }
+    try {
+      await apiClient.updateOrganizationStatus(statusChangeTarget.id, {
+        verificationStatus: newStatus === 'ACTIVE' ? 'APPROVED' : 'DENIED',
+      });
+      await loadTrustRegistry();
+    } catch (e: any) {
+      console.warn('API status update error:', e);
+      alert('Status update failed: ' + (e.message || 'Error'));
+    } finally {
+      setStatusChangeTarget(null);
+    }
   };
 
   return (
@@ -55,9 +102,11 @@ export default function TrustRegistryPage() {
               Verifiable Decentralized Identifiers (DIDs) and authorized credential schemas for verified institutions.
             </p>
           </div>
-          <Badge variant="neutral" className="self-start sm:self-auto py-1 px-3 text-xs">
-            Root Governance: CredLink Authority
-          </Badge>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Badge variant="neutral" className="py-1 px-3 text-xs">
+              Root Governance: CredLink Authority
+            </Badge>
+          </div>
         </div>
 
         {/* Filter Controls */}
@@ -106,7 +155,37 @@ export default function TrustRegistryPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrgs.map((org) => {
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-6 h-6 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm">Loading trust registry directory...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredOrgs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3 text-slate-400">
+                        <Building2 className="w-6 h-6" />
+                      </div>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                        {searchQuery || selectedDomain !== 'ALL'
+                          ? 'No matching institutions found'
+                          : 'No Registered Institutions in Trust Registry'}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {searchQuery || selectedDomain !== 'ALL'
+                          ? 'Try adjusting your search criteria or resetting the realm filter.'
+                          : 'No organizations have been registered in the governance directory yet.'}
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrgs.map((org) => {
                 const statusStyle = getOrgStatusBadge(org.status);
                 const domainStyle = getDomainBadgeStyle(org.domain);
 
@@ -168,7 +247,7 @@ export default function TrustRegistryPage() {
                     </TableCell>
                   </TableRow>
                 );
-              })}
+              }))}
             </TableBody>
           </Table>
         </Card>

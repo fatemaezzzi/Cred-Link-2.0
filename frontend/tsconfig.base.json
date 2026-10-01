@@ -15,7 +15,10 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@credlink/api-client": ["packages/api-client/index.ts"],
+      "@credlink/shared-types": ["packages/shared-types/index.ts"],
+      "@credlink/validation": ["packages/validation/index.ts"]
     }
   },
   "exclude": ["node_modules"]

@@ -10,14 +10,17 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Input } from '../../../components/ui/Input';
 import { Drawer } from '../../../components/ui/Drawer';
 import { Dialog } from '../../../components/ui/Dialog';
-import { MOCK_CREDENTIALS } from '../../../lib/mockData';
 import { CredentialItem, CredentialStatus, UserRole } from '../../../types';
 import { getCredentialStatusBadge, truncateDid, getDomainBadgeStyle } from '../../../lib/utils';
 import { useRoleContext } from '../../../hooks/useRoleContext';
+import { apiClient, CredentialRecord, CitizenSummary } from '../../../../../../packages/api-client';
 
 export default function CredentialsPage() {
   const { currentUser } = useRoleContext();
-  const [credentials, setCredentials] = useState<CredentialItem[]>(MOCK_CREDENTIALS);
+  if (!currentUser) return null;
+  const [credentials, setCredentials] = useState<CredentialItem[]>([]);
+  const [citizens, setCitizens] = useState<CitizenSummary[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -32,9 +35,74 @@ export default function CredentialsPage() {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectId, setNewSubjectId] = useState('');
-  const [newCredentialType, setNewCredentialType] = useState('Immunization Attestation');
-  const [newClaimKey, setNewClaimKey] = useState('batchId');
-  const [newClaimValue, setNewClaimValue] = useState('VAX-2026-X9');
+  const [newCredentialTitle, setNewCredentialTitle] = useState('');
+  const [newCredentialType, setNewCredentialType] = useState('Bachelor of Science');
+  const [newClaimKey, setNewClaimKey] = useState('major');
+  const [newClaimValue, setNewClaimValue] = useState('Computer Science');
+
+  const loadCredentials = React.useCallback(async () => {
+    if (!currentUser) return;
+    setIsLoading(true);
+    try {
+      const res = await apiClient.listCredentials();
+      if (res.success && res.data?.credentials) {
+        const mapped: CredentialItem[] = res.data.credentials.map((c: CredentialRecord) => {
+          let parsedClaims: { key: string; label: string; value: string }[] = [];
+          if (Array.isArray(c.claims)) {
+            parsedClaims = c.claims as { key: string; label: string; value: string }[];
+          } else if (c.claims && typeof c.claims === 'object') {
+            parsedClaims = Object.entries(c.claims).map(([k, v]) => ({
+              key: k,
+              label: k,
+              value: String(v),
+            }));
+          }
+          return {
+            id: c.id,
+            credentialType: c.credentialType,
+            domain: (c.domain?.toUpperCase() as UserRole) || 'CITIZEN',
+            subjectId: c.subjectId,
+            subjectName: c.subjectName || `Citizen ${c.subjectId.substring(0, 6)}`,
+            issuerName: c.issuer?.name || currentUser.organizationName,
+            issuerDid: c.issuer?.did || currentUser.organizationDid,
+            issuanceDate: c.issuanceDate ? c.issuanceDate.split('T')[0] : new Date().toISOString().split('T')[0],
+            status: (c.status as CredentialStatus) || 'VALID',
+            claims: parsedClaims,
+            qrPayload: c.qrPayload || `credlink://verify?vc=${c.id}`,
+          };
+        });
+        setCredentials(mapped);
+      } else {
+        setCredentials([]);
+      }
+    } catch (err) {
+      console.warn('Failed to load credentials from backend:', err);
+      setCredentials([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser]);
+
+  React.useEffect(() => {
+    loadCredentials();
+  }, [loadCredentials]);
+
+  // Load eligible citizens from Supabase when issuance modal opens
+  React.useEffect(() => {
+    if (showIssueModal) {
+      apiClient.getCitizens().then((res) => {
+        if (res.success && res.data && res.data.length > 0) {
+          setCitizens(res.data);
+          if (!newSubjectId) {
+            setNewSubjectId(res.data[0].id);
+            setNewSubjectName(res.data[0].fullName);
+          }
+        }
+      }).catch((err) => {
+        console.warn('Failed to load citizens:', err);
+      });
+    }
+  }, [showIssueModal, newSubjectId]);
 
   const filteredCredentials = credentials.filter((item) => {
     const matchesSearch =
@@ -46,37 +114,70 @@ export default function CredentialsPage() {
     return matchesSearch && matchesDomain && matchesStatus;
   });
 
-  const handleRevokeConfirm = () => {
+  const handleRevokeConfirm = async () => {
     if (!revokeTarget) return;
-    setCredentials((prev) =>
-      prev.map((c) => (c.id === revokeTarget.id ? { ...c, status: 'REVOKED' as CredentialStatus } : c))
-    );
-    setShowRevokeDialog(false);
-    setRevokeTarget(null);
+    try {
+      await apiClient.revokeCredential(revokeTarget.id, 'Revoked by authorized issuer');
+      await loadCredentials();
+    } catch (err: any) {
+      console.error('Revocation failed:', err);
+      alert('Revocation failed: ' + (err.message || 'Error'));
+    } finally {
+      setShowRevokeDialog(false);
+      setRevokeTarget(null);
+    }
   };
 
-  const handleCreateCredential = (e: React.FormEvent) => {
+  const handleCreateCredential = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newVc: CredentialItem = {
-      id: `vc_custom_${Date.now()}`,
-      credentialType: newCredentialType,
-      domain: currentUser.role,
-      subjectId: newSubjectId || 'CIT-100299',
-      subjectName: newSubjectName || 'Demo Citizen',
-      issuerName: currentUser.organizationName,
-      issuerDid: currentUser.organizationDid,
-      issuanceDate: new Date().toISOString().split('T')[0],
-      status: 'VALID',
-      claims: [
-        { key: newClaimKey, label: newClaimKey, value: newClaimValue },
-        { key: 'verificationProof', label: 'Proof', value: 'Ed25519Signature2020' }
-      ],
-      qrPayload: `credlink://verify?vc=vc_custom_${Date.now()}&issuer=${currentUser.organizationDid}`
-    };
-    setCredentials([newVc, ...credentials]);
-    setShowIssueModal(false);
-    setNewSubjectName('');
-    setNewSubjectId('');
+    if (currentUser.organizationStatus === 'PENDING') {
+      alert('Credential issuance restricted: Your organization status is PENDING approval.');
+      return;
+    }
+    if (!newSubjectId) {
+      alert('Please select an active citizen profile as the credential subject.');
+      return;
+    }
+
+    try {
+      const targetDomain =
+        currentUser.role === 'COLLEGE'
+          ? 'education'
+          : currentUser.role === 'HOSPITAL'
+          ? 'healthcare'
+          : currentUser.role === 'BANK'
+          ? 'finance'
+          : 'employment';
+
+      const finalTitle = newCredentialTitle.trim() || `${newCredentialType} Attestation`;
+
+      const claimsPayload: Record<string, any> = {
+        subjectName: newSubjectName || 'Verified Citizen',
+      };
+      if (newClaimKey.trim()) {
+        claimsPayload[newClaimKey.trim()] = newClaimValue;
+      }
+
+      if (!currentUser.organizationId) {
+        alert('Issuance failed: Authenticated user has no active issuing organization context.');
+        return;
+      }
+
+      await apiClient.issueCredential({
+        subjectId: newSubjectId,
+        issuerOrgId: currentUser.organizationId,
+        domain: targetDomain,
+        credentialType: newCredentialType,
+        title: finalTitle,
+        claims: claimsPayload,
+      });
+      await loadCredentials();
+      setShowIssueModal(false);
+      setNewCredentialTitle('');
+    } catch (err: any) {
+      console.error('Backend issuance failed:', err);
+      alert('Issuance failed: ' + (err.message || 'Error'));
+    }
   };
 
   return (
@@ -85,17 +186,27 @@ export default function CredentialsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-              Verifiable Credential Management
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                Verifiable Credential Management
+              </h1>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Issue, inspect claims, present simulated QR proofs, or manage credential revocation lifecycles.
             </p>
           </div>
           <Button
             variant={currentUser.role === 'HOSPITAL' ? 'health' : 'primary'}
-            onClick={() => setShowIssueModal(true)}
-            className="gap-2 shrink-0 font-semibold"
+            onClick={() => {
+              if (currentUser.organizationStatus === 'PENDING') return;
+              if (currentUser.authorizedCredentialTypes && currentUser.authorizedCredentialTypes.length > 0) {
+                setNewCredentialType(currentUser.authorizedCredentialTypes[0]);
+              }
+              setShowIssueModal(true);
+            }}
+            disabled={currentUser.organizationStatus === 'PENDING' || (currentUser.role !== 'ADMIN' && currentUser.isIssuer === false)}
+            className="gap-2 shrink-0 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            title={currentUser.organizationStatus === 'PENDING' ? 'Restricted: Organization pending approval' : ''}
           >
             <Plus className="w-4 h-4" />
             <span>Issue New Credential</span>
@@ -160,10 +271,44 @@ export default function CredentialsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCredentials.length === 0 ? (
+              {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-400">
-                    No matching credentials found.
+                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-6 h-6 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm">Loading credentials from network...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredCredentials.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3 text-slate-400">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100 mb-1">
+                        {searchQuery || selectedDomain !== 'ALL' || selectedStatus !== 'ALL'
+                          ? 'No matching credentials found'
+                          : 'No Verifiable Credentials Yet'}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                        {searchQuery || selectedDomain !== 'ALL' || selectedStatus !== 'ALL'
+                          ? 'Try adjusting your search criteria or resetting filters.'
+                          : 'There are currently no verifiable credentials recorded in this domain. Authorized institutions can issue new verifiable credentials.'}
+                      </p>
+                      {currentUser.isIssuer && !searchQuery && selectedDomain === 'ALL' && selectedStatus === 'ALL' && (
+                        <Button
+                          size="sm"
+                          onClick={() => setShowIssueModal(true)}
+                          disabled={currentUser.organizationStatus === 'PENDING'}
+                          className="gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Issue First Credential</span>
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -307,16 +452,16 @@ export default function CredentialsPage() {
       </Drawer>
 
       {/* Simulated QR Code Modal */}
+      {/* Presentation QR Modal */}
       <Dialog
         isOpen={showQrModal && selectedCred !== null}
         onClose={() => setShowQrModal(false)}
-        title="Simulated Credential Delivery QR"
-        description="Scan from citizen mobile wallet to import credential (UI Demo)."
+        title="Verifiable Credential Presentation Payload"
+        description="Encrypted and HMAC-SHA256 signed credential payload."
       >
         {selectedCred && (
           <div className="text-center space-y-4 py-2">
             <div className="inline-block p-4 bg-white border border-slate-300 rounded-xl shadow-md">
-              {/* Simulated Crisp QR Pattern */}
               <div className="w-48 h-48 bg-slate-900 rounded-md flex flex-col items-center justify-center p-3 text-white space-y-2 relative overflow-hidden">
                 <QrCode className="w-24 h-24 text-white" />
                 <span className="text-[9px] font-mono tracking-widest bg-slate-800 px-2 py-0.5 rounded">
@@ -328,8 +473,8 @@ export default function CredentialsPage() {
               <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">{selectedCred.credentialType}</p>
               <p className="text-[11px] text-slate-500 font-mono mt-0.5">{selectedCred.qrPayload}</p>
             </div>
-            <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-md text-[11px] text-amber-800 dark:text-amber-300">
-              Note: This is a synthetic QR representation for hackathon visual demonstration.
+            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-md text-[11px] text-emerald-800 dark:text-emerald-300">
+              Note: Contains application-level HMAC-SHA256 signature payload.
             </div>
           </div>
         )}
@@ -366,50 +511,106 @@ export default function CredentialsPage() {
         isOpen={showIssueModal}
         onClose={() => setShowIssueModal(false)}
         title={`Issue Credential — ${currentUser.role}`}
-        description="Create a new verifiable credential record for demo subject."
+        description="Issue a database-persisted verifiable credential to an active citizen profile."
       >
         <form onSubmit={handleCreateCredential} className="space-y-3 text-xs">
+          {/* Real Citizen Selector from Supabase profiles */}
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+              Target Citizen Subject (Supabase Profile)
+            </label>
+            {citizens.length > 0 ? (
+              <select
+                value={newSubjectId}
+                onChange={(e) => {
+                  const selected = e.target.value;
+                  setNewSubjectId(selected);
+                  const matched = citizens.find((c) => c.id === selected);
+                  if (matched) setNewSubjectName(matched.fullName);
+                }}
+                className="w-full h-9 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+                required
+              >
+                {citizens.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.fullName} ({c.email})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded text-xs text-slate-500">
+                Loading eligible citizen profiles from database...
+              </div>
+            )}
+            {newSubjectId && (
+              <p className="text-[10px] text-slate-500 font-mono">
+                Selected Citizen UUID: {newSubjectId}
+              </p>
+            )}
+          </div>
+
+          {currentUser.authorizedCredentialTypes && currentUser.authorizedCredentialTypes.length > 0 ? (
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                Authorized Credential Schema / Type
+              </label>
+              <select
+                value={newCredentialType}
+                onChange={(e) => setNewCredentialType(e.target.value)}
+                className="w-full h-9 px-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-400"
+                required
+              >
+                {currentUser.authorizedCredentialTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <Input
+              label="Credential Type"
+              placeholder="e.g. Immunization Record / Bachelor Degree"
+              value={newCredentialType}
+              onChange={(e) => setNewCredentialType(e.target.value)}
+              required
+            />
+          )}
+
           <Input
-            label="Subject Full Name"
-            placeholder="e.g. Elena Rostova"
-            value={newSubjectName}
-            onChange={(e) => setNewSubjectName(e.target.value)}
-            required
+            label="Credential Title / Description"
+            placeholder="e.g. Bachelor of Science in Computer Science"
+            value={newCredentialTitle}
+            onChange={(e) => setNewCredentialTitle(e.target.value)}
           />
-          <Input
-            label="Subject Citizen / ID"
-            placeholder="e.g. CIT-771239"
-            value={newSubjectId}
-            onChange={(e) => setNewSubjectId(e.target.value)}
-            required
-          />
-          <Input
-            label="Credential Type"
-            placeholder="e.g. Immunization Record / Bachelor Degree"
-            value={newCredentialType}
-            onChange={(e) => setNewCredentialType(e.target.value)}
-            required
-          />
+
           <div className="grid grid-cols-2 gap-2 pt-1">
             <Input
               label="Claim Field Key"
-              placeholder="e.g. vaccineType"
+              placeholder="e.g. major"
               value={newClaimKey}
               onChange={(e) => setNewClaimKey(e.target.value)}
             />
             <Input
               label="Claim Field Value"
-              placeholder="e.g. Hepatitis B Booster"
+              placeholder="e.g. Computer Science"
               value={newClaimValue}
               onChange={(e) => setNewClaimValue(e.target.value)}
             />
           </div>
+
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded text-[11px] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+            <p className="font-semibold text-slate-800 dark:text-slate-200">Issuer Authorization:</p>
+            <p className="font-mono text-[10px] text-slate-500">{currentUser.organizationName} ({currentUser.organizationDid})</p>
+            <p className="text-[10px] text-teal-600 dark:text-teal-400 font-medium mt-0.5">Signature: HMAC-SHA256 application-level verification</p>
+          </div>
+
           <div className="flex justify-end gap-2 pt-3">
             <Button type="button" variant="outline" size="sm" onClick={() => setShowIssueModal(false)}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" size="sm">
-              Issue & Add to Catalog
+              Issue Credential
             </Button>
           </div>
         </form>
