@@ -10,8 +10,7 @@ backend/node_modules/
 frontend/node_modules/
 frontend/.next/
 
-# Backend — keep local, never push
-/backend/
+
 
 # Environment secrets
 .env
