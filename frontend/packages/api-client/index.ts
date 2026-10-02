@@ -545,6 +545,14 @@ export class CredLinkApiClient {
     const response = await this.verifyCredentialComprehensive({ credentialId: requestId });
     return { status: response.data?.verificationResult || 'APPROVED' };
   }
+
+  /**
+   * GET /api/demo/dashboard - Public read-only demo data endpoint (no auth required).
+   * Returns credentials, organizations, trust registry, audit logs, and consents from Supabase.
+   */
+  public async fetchDemoData(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/demo/dashboard', { method: 'GET' });
+  }
 }
 
 export const createApiClient = (baseUrl?: string) => new CredLinkApiClient(baseUrl);
