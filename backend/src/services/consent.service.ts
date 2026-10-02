@@ -1,13 +1,13 @@
-import { supabaseAdmin } from '../config/supabase';
+import { supabaseAdmin } from '../config/supabase.js';
 import {
   RequestConsentInput,
   GrantConsentInput,
   RespondConsentInput,
   GetConsentsQuery,
   ShareCredentialInput,
-} from '../validators/consent.validator';
-import { AppError } from '../types';
-import { AuthUser } from '../middleware/authMiddleware';
+} from '../validators/consent.validator.js';
+import { AppError } from '../types.js';
+import { AuthUser } from '../middleware/authMiddleware.js';
 
 export class ConsentService {
   /**

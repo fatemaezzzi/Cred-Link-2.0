@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { organizationService } from '../services/organization.service';
-import { createOrganizationSchema, getOrganizationsQuerySchema } from '../validators/organization.validator';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { ApiResponse } from '../types';
+import { organizationService } from '../services/organization.service.js';
+import { createOrganizationSchema, getOrganizationsQuerySchema } from '../validators/organization.validator.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { ApiResponse } from '../types.js';
 
 export class OrganizationController {
   /**

@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { consentController } from '../controllers/consent.controller';
-import { authenticateUser } from '../middleware/authMiddleware';
+import { consentController } from '../controllers/consent.controller.js';
+import { authenticateUser } from '../middleware/authMiddleware.js';
 
 const router = Router();
 

@@ -1,13 +1,13 @@
 import { Response, NextFunction } from 'express';
-import { credentialService } from '../services/credential.service';
+import { credentialService } from '../services/credential.service.js';
 import {
   createCredentialSchema,
   getCredentialsQuerySchema,
   revokeCredentialSchema,
   verifyCredentialSchema,
-} from '../validators/credential.validator';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { ApiResponse } from '../types';
+} from '../validators/credential.validator.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { ApiResponse } from '../types.js';
 
 export class CredentialController {
   /**

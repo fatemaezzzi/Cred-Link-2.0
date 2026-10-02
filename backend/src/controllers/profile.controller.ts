@@ -1,8 +1,8 @@
 import { Response, NextFunction } from 'express';
-import { profileService } from '../services/profile.service';
-import { updateProfileSchema } from '../validators/profile.validator';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { ApiResponse } from '../types';
+import { profileService } from '../services/profile.service.js';
+import { updateProfileSchema } from '../validators/profile.validator.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { ApiResponse } from '../types.js';
 
 export class ProfileController {
   /**

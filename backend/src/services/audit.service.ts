@@ -1,6 +1,6 @@
-import { supabaseAdmin } from '../config/supabase';
-import { AuthUser } from '../middleware/authMiddleware';
-import { AppError } from '../types';
+import { supabaseAdmin } from '../config/supabase.js';
+import { AuthUser } from '../middleware/authMiddleware.js';
+import { AppError } from '../types.js';
 
 export interface GetAuditLogsQuery {
   page?: number;

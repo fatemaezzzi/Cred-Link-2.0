@@ -1,6 +1,6 @@
-import { supabaseClient, supabaseAdmin } from '../config/supabase';
-import { RegisterInput, LoginInput } from '../validators/auth.validator';
-import { AppError } from '../types';
+import { supabaseClient, supabaseAdmin } from '../config/supabase.js';
+import { RegisterInput, LoginInput } from '../validators/auth.validator.js';
+import { AppError } from '../types.js';
 
 export class AuthService {
   /**

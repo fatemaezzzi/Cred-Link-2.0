@@ -1,6 +1,6 @@
-import { supabaseAdmin } from '../config/supabase';
-import { CreateOrgInput, GetOrgsQuery } from '../validators/organization.validator';
-import { AppError } from '../types';
+import { supabaseAdmin } from '../config/supabase.js';
+import { CreateOrgInput, GetOrgsQuery } from '../validators/organization.validator.js';
+import { AppError } from '../types.js';
 
 export class OrganizationService {
   /**

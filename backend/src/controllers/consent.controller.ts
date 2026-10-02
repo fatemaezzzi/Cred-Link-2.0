@@ -1,14 +1,14 @@
 import { Response, NextFunction } from 'express';
-import { consentService } from '../services/consent.service';
+import { consentService } from '../services/consent.service.js';
 import {
   requestConsentSchema,
   grantConsentSchema,
   respondConsentSchema,
   getConsentsQuerySchema,
   shareCredentialSchema,
-} from '../validators/consent.validator';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { ApiResponse } from '../types';
+} from '../validators/consent.validator.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { ApiResponse } from '../types.js';
 
 export class ConsentController {
   /**

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import crypto from 'crypto';
-import { agent } from './agent';
-import { initIssuerAgent, getIssuerDid, getIssuerOrg } from './issuer';
-import { credentialService } from '../services/credential.service';
-import { trustService } from '../services/trust.service';
-import { supabaseAdmin } from '../config/supabase';
-import { env } from '../config/env';
-import { AuthUser } from '../middleware/authMiddleware';
+import { agent } from './agent.js';
+import { initIssuerAgent, getIssuerDid, getIssuerOrg } from './issuer.js';
+import { credentialService } from '../services/credential.service.js';
+import { trustService } from '../services/trust.service.js';
+import { supabaseAdmin } from '../config/supabase.js';
+import { env } from '../config/env.js';
+import { AuthUser } from '../middleware/authMiddleware.js';
 
 /**
  * Veramo W3C Verifiable Credentials Acceptance Test Suite

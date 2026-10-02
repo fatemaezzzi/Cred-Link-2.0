@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
-import { auditService } from '../services/audit.service';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { ApiResponse } from '../types';
+import { auditService } from '../services/audit.service.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { ApiResponse } from '../types.js';
 
 export class AuditController {
   /**

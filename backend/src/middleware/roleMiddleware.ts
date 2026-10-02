@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from './authMiddleware';
-import { AppError } from '../types';
+import { AuthenticatedRequest } from './authMiddleware.js';
+import { AppError } from '../types.js';
 
 /**
  * Enforces role-based access control (RBAC) on routes.

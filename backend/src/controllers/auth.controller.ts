@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService } from '../services/auth.service';
-import { registerSchema, loginSchema } from '../validators/auth.validator';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { ApiResponse } from '../types';
+import { authService } from '../services/auth.service.js';
+import { registerSchema, loginSchema } from '../validators/auth.validator.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { ApiResponse } from '../types.js';
 
 export class AuthController {
   /**
