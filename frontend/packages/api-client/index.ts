@@ -360,6 +360,16 @@ export class CredLinkApiClient {
   }
 
   /**
+   * POST /api/organizations - Create a new organization (auto-adds creator as org ADMIN member)
+   */
+  public async createOrganization(input: { name: string; code: string; domain: string; registrationRef?: string }): Promise<ApiResponse<OrganizationSummary>> {
+    return this.request<OrganizationSummary>('/api/organizations', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  /**
    * GET /api/trust-registry - Fetch trust registry entries
    */
   public async listTrustRegistry(query?: { page?: number; limit?: number; trustStatus?: string; domain?: string }): Promise<ApiResponse<{ entries: TrustRegistryEntry[]; pagination: unknown }>> {

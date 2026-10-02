@@ -13,7 +13,7 @@ import { Dialog } from '../../../components/ui/Dialog';
 import { CredentialItem, CredentialStatus, UserRole } from '../../../types';
 import { getCredentialStatusBadge, truncateDid, getDomainBadgeStyle } from '../../../lib/utils';
 import { useRoleContext } from '../../../hooks/useRoleContext';
-import { apiClient, CredentialRecord, CitizenSummary } from '../../../../../../packages/api-client';
+import { apiClient, CredentialRecord, CitizenSummary, VerificationCheckResult } from '../../../../../../packages/api-client';
 import { MOCK_CREDENTIALS } from '../../../lib/mockData';
 
 export default function CredentialsPage() {
@@ -32,14 +32,21 @@ export default function CredentialsPage() {
   const [revokeTarget, setRevokeTarget] = useState<CredentialItem | null>(null);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
 
+  // Quick Verify (Mode A) state
+  const [verifyResult, setVerifyResult] = useState<VerificationCheckResult | null>(null);
+  const [showVerifyDialog, setShowVerifyDialog] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyTargetName, setVerifyTargetName] = useState('');
+
   // New Issue Modal
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectId, setNewSubjectId] = useState('');
   const [newCredentialTitle, setNewCredentialTitle] = useState('');
   const [newCredentialType, setNewCredentialType] = useState('Bachelor of Science');
-  const [newClaimKey, setNewClaimKey] = useState('major');
-  const [newClaimValue, setNewClaimValue] = useState('Computer Science');
+  const [newClaimFields, setNewClaimFields] = useState<{ key: string; value: string }[]>([
+    { key: 'major', value: 'Computer Science' },
+  ]);
 
   const loadCredentials = React.useCallback(async () => {
     if (!currentUser) return;
@@ -133,6 +140,27 @@ export default function CredentialsPage() {
     }
   };
 
+  const handleQuickVerify = async (cred: CredentialItem) => {
+    setIsVerifying(true);
+    setVerifyTargetName(`${cred.credentialType} — ${cred.subjectName}`);
+    setShowVerifyDialog(true);
+    setVerifyResult(null);
+    try {
+      const res = await apiClient.verifyCredentialComprehensive({ credentialId: cred.id });
+      if (res.success && res.data) {
+        setVerifyResult(res.data);
+      } else {
+        alert('Verification failed: ' + (res.error || 'Unknown error'));
+        setShowVerifyDialog(false);
+      }
+    } catch (err: any) {
+      alert('Verification error: ' + (err.message || 'Error'));
+      setShowVerifyDialog(false);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleCreateCredential = async (e: React.FormEvent) => {
     e.preventDefault();
     if (currentUser.organizationStatus === 'PENDING') {
@@ -156,8 +184,10 @@ export default function CredentialsPage() {
       const claimsPayload: Record<string, any> = {
         subjectName: newSubjectName || 'Verified Citizen',
       };
-      if (newClaimKey.trim()) {
-        claimsPayload[newClaimKey.trim()] = newClaimValue;
+      for (const field of newClaimFields) {
+        if (field.key.trim()) {
+          claimsPayload[field.key.trim()] = field.value;
+        }
       }
 
       try {
@@ -184,7 +214,9 @@ export default function CredentialsPage() {
           status: 'VALID',
           claims: [
             { key: 'title', label: 'Credential Title', value: finalTitle },
-            { key: newClaimKey || 'detail', label: newClaimKey || 'Detail', value: newClaimValue || 'Verified' }
+            ...newClaimFields
+              .filter((f) => f.key.trim())
+              .map((f) => ({ key: f.key, label: f.key, value: f.value })),
           ],
           qrPayload: `credlink://verify?vc=vc_demo_${Date.now()}`,
         };
@@ -602,19 +634,53 @@ export default function CredentialsPage() {
             onChange={(e) => setNewCredentialTitle(e.target.value)}
           />
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Input
-              label="Claim Field Key"
-              placeholder="e.g. major"
-              value={newClaimKey}
-              onChange={(e) => setNewClaimKey(e.target.value)}
-            />
-            <Input
-              label="Claim Field Value"
-              placeholder="e.g. Computer Science"
-              value={newClaimValue}
-              onChange={(e) => setNewClaimValue(e.target.value)}
-            />
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                Claim Fields
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-6 text-[10px] px-2"
+                onClick={() => setNewClaimFields([...newClaimFields, { key: '', value: '' }])}
+              >
+                <Plus className="w-3 h-3" />
+                Add Field
+              </Button>
+            </div>
+            {newClaimFields.map((field, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Input
+                  placeholder="e.g. major"
+                  value={field.key}
+                  onChange={(e) => {
+                    const updated = [...newClaimFields];
+                    updated[idx] = { ...updated[idx], key: e.target.value };
+                    setNewClaimFields(updated);
+                  }}
+                />
+                <Input
+                  placeholder="e.g. Computer Science"
+                  value={field.value}
+                  onChange={(e) => {
+                    const updated = [...newClaimFields];
+                    updated[idx] = { ...updated[idx], value: e.target.value };
+                    setNewClaimFields(updated);
+                  }}
+                />
+                {newClaimFields.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setNewClaimFields(newClaimFields.filter((_, i) => i !== idx))}
+                    className="text-slate-400 hover:text-rose-500 transition-colors shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
 
           <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded text-[11px] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">

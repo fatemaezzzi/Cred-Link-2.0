@@ -12,6 +12,9 @@ const envSchema = z.object({
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1, 'SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY) is required'),
   SUPABASE_SECRET_KEY: z.string().min(1, 'SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is required'),
   FRONTEND_URL: z.string().default('https://cred-link.vercel.app'),
+  ISSUER_DID: z.string().min(1, 'ISSUER_DID is required'),
+  ISSUER_KEY_ID: z.string().min(1, 'ISSUER_KEY_ID is required'),
+  ISSUER_PRIVATE_KEY_HEX: z.string().min(1, 'ISSUER_PRIVATE_KEY_HEX is required'),
 });
 
 const rawEnv = {
@@ -21,6 +24,9 @@ const rawEnv = {
   SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY,
   SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
   FRONTEND_URL: process.env.FRONTEND_URL,
+  ISSUER_DID: process.env.ISSUER_DID,
+  ISSUER_KEY_ID: process.env.ISSUER_KEY_ID,
+  ISSUER_PRIVATE_KEY_HEX: process.env.ISSUER_PRIVATE_KEY_HEX,
 };
 
 const parseEnv = () => {

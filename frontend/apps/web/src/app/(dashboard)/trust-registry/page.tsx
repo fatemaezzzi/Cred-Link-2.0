@@ -71,6 +71,53 @@ export default function TrustRegistryPage() {
     return matchesSearch && matchesDomain;
   });
 
+  const [approveTarget, setApproveTarget] = useState<Organization | null>(null);
+
+  // Domain → default credential types mapping
+  const domainCredentialTypes: Record<string, string[]> = {
+    COLLEGE: ['AcademicCredential', 'DegreeCredential', 'TranscriptCredential'],
+    HOSPITAL: ['MedicalCredential', 'VaccinationCredential', 'HealthRecord'],
+    BANK: ['FinancialCredential', 'CreditScoreCredential'],
+    EMPLOYER: ['EmploymentCredential', 'WorkExperienceCredential'],
+  };
+
+  const handleApproveOrg = async () => {
+    if (!approveTarget) return;
+    if (currentUser.role !== 'ADMIN') {
+      alert('Forbidden: Only Network Administrators can approve organizations.');
+      return;
+    }
+    try {
+      const credTypes = domainCredentialTypes[approveTarget.domain] || ['VerifiableCredential'];
+      await apiClient.updateOrganizationStatus(approveTarget.id, {
+        verificationStatus: 'APPROVED',
+        isIssuer: true,
+        authorizedCredentialTypes: credTypes,
+      });
+      await loadTrustRegistry();
+    } catch (e: any) {
+      alert('Approval failed: ' + (e.message || 'Error'));
+    } finally {
+      setApproveTarget(null);
+    }
+  };
+
+  const handleDenyOrg = async (org: Organization) => {
+    if (currentUser.role !== 'ADMIN') {
+      alert('Forbidden: Only Network Administrators can deny organizations.');
+      return;
+    }
+    if (!confirm(`Deny registration for "${org.name}"?`)) return;
+    try {
+      await apiClient.updateOrganizationStatus(org.id, {
+        verificationStatus: 'DENIED',
+      });
+      await loadTrustRegistry();
+    } catch (e: any) {
+      alert('Denial failed: ' + (e.message || 'Error'));
+    }
+  };
+
   const handleUpdateOrgStatus = async () => {
     if (!statusChangeTarget) return;
     if (currentUser.role !== 'ADMIN') {
@@ -233,7 +280,30 @@ export default function TrustRegistryPage() {
                           <Eye className="w-3.5 h-3.5" />
                           <span>Details</span>
                         </Button>
-                        {currentUser.role === 'ADMIN' && (
+                        {currentUser.role === 'ADMIN' && (org.status === 'PENDING' || org.status === 'DENIED') && (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => setApproveTarget(org)}
+                              className="h-7 text-xs px-2 bg-emerald-600 hover:bg-emerald-700"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </Button>
+                            {org.status !== 'DENIED' && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleDenyOrg(org)}
+                                className="h-7 text-xs px-2 text-rose-600 hover:text-rose-700"
+                              >
+                                <span>Deny</span>
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {currentUser.role === 'ADMIN' && org.status !== 'PENDING' && org.status !== 'DENIED' && (
                           <Button
                             variant="secondary"
                             size="sm"
@@ -320,6 +390,39 @@ export default function TrustRegistryPage() {
               </Button>
               <Button variant="primary" size="sm" onClick={handleUpdateOrgStatus}>
                 Confirm Status Update
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Admin Approve Organization Dialog */}
+      <Dialog
+        isOpen={approveTarget !== null}
+        onClose={() => setApproveTarget(null)}
+        title="Approve Organization"
+        description="Grant issuer authorization to this institution on the CredLink network."
+      >
+        {approveTarget && (
+          <div className="space-y-4">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-md text-sm">
+              <p className="font-semibold text-emerald-800 dark:text-emerald-300">{approveTarget.name}</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">Code: {approveTarget.code} · Domain: {approveTarget.domain}</p>
+            </div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
+              <p className="font-medium text-slate-800 dark:text-slate-200">This approval will:</p>
+              <ul className="list-disc ml-4 space-y-0.5">
+                <li>Set verification status to <strong>APPROVED</strong></li>
+                <li>Grant <strong>Issuer</strong> privileges</li>
+                <li>Authorize credential types: <span className="font-mono">{(domainCredentialTypes[approveTarget.domain] || ['VerifiableCredential']).join(', ')}</span></li>
+              </ul>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setApproveTarget(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleApproveOrg} className="bg-emerald-600 hover:bg-emerald-700">
+                Confirm Approval
               </Button>
             </div>
           </div>

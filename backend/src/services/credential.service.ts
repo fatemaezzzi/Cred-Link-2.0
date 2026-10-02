@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
 import { env } from '../config/env';
+import { agent } from '../veramo/agent';
+import { getIssuerDid } from '../veramo/issuer';
 import {
   CreateCredentialInput,
   GetCredentialsQuery,
@@ -93,12 +95,16 @@ export class CredentialService {
     // 1. Verify subject citizen profile exists
     const { data: subjectProfile, error: subjectError } = await supabaseAdmin
       .from('profiles')
-      .select('id, role')
+      .select('id, role, full_name')
       .eq('id', subjectId)
       .maybeSingle();
 
     if (subjectError || !subjectProfile) {
       throw new AppError('Subject citizen profile not found', 404);
+    }
+
+    if (!subjectProfile.full_name || !subjectProfile.full_name.trim()) {
+      throw new AppError('Subject citizen profile is missing full name', 400);
     }
 
     // 2. Retrieve issuer organization details
@@ -147,21 +153,39 @@ export class CredentialService {
       }
     }
 
-    // 5. Generate issuance timestamp & signature
-    const issuanceDate = new Date().toISOString();
-    const signature = this.generateCredentialSignature(
-      issuerOrg.did,
-      subjectId,
-      domain,
-      credentialType,
-      issuanceDate,
-      claims
-    );
-
+    // 5. Real Veramo W3C Verifiable Credential Issuance
     const tempId = crypto.randomUUID();
-    const qrPayload = `credlink:vc:${tempId}:${crypto.createHash('sha256').update(signature).digest('hex').substring(0, 16)}`;
+    const issuanceDate = new Date().toISOString();
+    const credentialIdUri = `urn:uuid:${tempId}`;
+    // Only use the org's DID if it's a real Veramo-managed did:key: DID.
+    // Fake did:credlink: DIDs are not managed by this agent — fall back to the persistent issuer DID.
+    const effectiveIssuerDid = (issuerOrg.did && issuerOrg.did.startsWith('did:key:'))
+      ? issuerOrg.did
+      : getIssuerDid();
 
-    // 6. Insert credential into database
+    const studentProfileId = subjectProfile.id;
+    const credentialSubject: Record<string, any> = {
+      id: `urn:uuid:${studentProfileId}`,
+      name: subjectProfile.full_name.trim(),
+      ...(typeof claims === 'object' && !Array.isArray(claims) ? claims : { items: claims }),
+    };
+
+    const verifiableCredential = await agent.createVerifiableCredential({
+      credential: {
+        id: credentialIdUri,
+        issuer: { id: effectiveIssuerDid },
+        issuanceDate,
+        ...(expirationDate ? { expirationDate: new Date(expirationDate).toISOString() } : {}),
+        credentialSubject,
+      },
+      proofFormat: 'jwt',
+    });
+
+    const signedJwt = verifiableCredential.proof.jwt;
+    const jwtHash = crypto.createHash('sha256').update(signedJwt).digest('hex');
+    const qrPayload = `credlink:vc:${tempId}:${jwtHash.substring(0, 16)}`;
+
+    // 6. Insert credential archive record into database
     const { data: newCredential, error: insertError } = await supabaseAdmin
       .from('credentials')
       .insert({
@@ -175,7 +199,7 @@ export class CredentialService {
         issuance_date: issuanceDate,
         expiration_date: expirationDate || null,
         status: 'VALID',
-        issuer_signature: signature,
+        issuer_signature: signedJwt,
         qr_payload: qrPayload,
       })
       .select('*')
@@ -199,8 +223,10 @@ export class CredentialService {
         metadata: {
           subjectId,
           credentialType,
-          issuerDid: issuerOrg.did,
+          issuerDid: effectiveIssuerDid,
           issuanceDate,
+          credentialIdUri,
+          jwtHash,
         },
       });
     } catch (auditErr) {
@@ -209,9 +235,10 @@ export class CredentialService {
 
     return {
       id: newCredential.id,
+      credentialIdUri,
       subjectId: newCredential.subject_id,
       issuerOrgId: newCredential.issuer_org_id,
-      issuerDid: issuerOrg.did,
+      issuerDid: effectiveIssuerDid,
       domain: newCredential.domain,
       credentialType: newCredential.credential_type,
       title: newCredential.title,
@@ -220,7 +247,10 @@ export class CredentialService {
       expirationDate: newCredential.expiration_date,
       status: newCredential.status,
       issuerSignature: newCredential.issuer_signature,
+      jwt: signedJwt,
+      jwtHash,
       qrPayload: newCredential.qr_payload,
+      w3cCredential: verifiableCredential,
       createdAt: newCredential.created_at,
       updatedAt: newCredential.updated_at,
     };
@@ -299,9 +329,21 @@ export class CredentialService {
 
         const issuerObj = Array.isArray(cred.issuer) ? cred.issuer[0] : cred.issuer;
 
+        // Fetch subject name from profiles table
+        let subjectName: string | null = null;
+        if (cred.subject_id) {
+          const { data: subjectProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('full_name')
+            .eq('id', cred.subject_id)
+            .maybeSingle();
+          subjectName = subjectProfile?.full_name || null;
+        }
+
         return {
           id: cred.id,
           subjectId: cred.subject_id,
+          subjectName,
           issuerOrgId: cred.issuer_org_id,
           issuer: issuerObj ? { id: issuerObj.id, name: issuerObj.name, did: issuerObj.did } : null,
           domain: cred.domain,
@@ -495,92 +537,207 @@ export class CredentialService {
   }
 
   /**
-   * Performs cryptographic signature verification & status validation.
+   * Performs cryptographic signature verification & status validation (Mode A).
+   * Verifies signature first, extracts signed ID from VC, and checks Trust Registry + Lifecycle.
    */
   async verifyCredential(_actor: AuthUser, input: VerifyCredentialInput) {
-    let credData: any = null;
+    let rawJwt: string = '';
 
-    if (input.credentialId) {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(input.credentialId)) {
-        throw new AppError('Invalid credential ID format', 400);
+    if (input.credentialPayload) {
+      if (typeof input.credentialPayload === 'string') {
+        rawJwt = input.credentialPayload;
+      } else if (typeof input.credentialPayload === 'object') {
+        rawJwt =
+          input.credentialPayload.jwt ||
+          input.credentialPayload.issuer_signature ||
+          input.credentialPayload.issuerSignature ||
+          input.credentialPayload.proof?.jwt ||
+          '';
       }
+    }
 
-      const { data: cred, error } = await supabaseAdmin
+    if (!rawJwt && input.credentialId) {
+      const { data: cred } = await supabaseAdmin
         .from('credentials')
-        .select('*, issuer:organizations(did)')
+        .select('issuer_signature')
         .eq('id', input.credentialId)
         .maybeSingle();
-
-      if (error || !cred) {
-        throw new AppError('Credential not found for verification', 404);
+      if (cred?.issuer_signature) {
+        rawJwt = cred.issuer_signature;
       }
-      credData = cred;
-    } else if (input.credentialPayload) {
-      credData = input.credentialPayload;
-    } else {
-      throw new AppError('Either credentialId or credentialPayload must be provided for verification', 400);
     }
 
-    const isRevoked = credData.status === 'REVOKED';
-    const isExpired = credData.expiration_date ? new Date(credData.expiration_date) < new Date() : false;
-
-    // Fetch revocation details if revoked
-    let revocationReason: string | null = credData.revocation_reason || null;
-    let revokedAt: string | null = credData.revoked_at || null;
-    if (isRevoked && !revocationReason && credData.id) {
-      const revMeta = await this.getRevocationMetadata(credData.id);
-      revocationReason = revMeta.reason;
-      revokedAt = revMeta.revokedAt;
+    let detectedAlgorithm = 'Ed25519-EdDSA';
+    if (rawJwt) {
+      try {
+        const headerParts = rawJwt.split('.');
+        if (headerParts.length >= 2) {
+          const parsedHeader = JSON.parse(Buffer.from(headerParts[0], 'base64url').toString('utf-8'));
+          if (parsedHeader?.alg) {
+            detectedAlgorithm = parsedHeader.alg === 'EdDSA' ? 'Ed25519-EdDSA' : parsedHeader.alg;
+          }
+        }
+      } catch {
+        // preserve detectedAlgorithm default
+      }
     }
 
-    // Resolve issuer DID from joined object or query fallback
-    let issuerDid: string = '';
-    const issuerObj = Array.isArray(credData.issuer) ? credData.issuer[0] : credData.issuer;
-    if (issuerObj?.did) {
-      issuerDid = issuerObj.did;
-    } else if (credData.issuerDid) {
-      issuerDid = credData.issuerDid;
-    } else if (credData.issuer_org_id) {
-      const { data: org } = await supabaseAdmin
-        .from('organizations')
-        .select('did')
-        .eq('id', credData.issuer_org_id)
-        .maybeSingle();
-      issuerDid = org?.did || `did:credlink:org:${credData.issuer_org_id}`;
-    } else {
-      issuerDid = 'did:credlink:org:unknown';
+    if (!rawJwt) {
+      return {
+        valid: false,
+        reason: 'Missing credential JWT for verification',
+        applicationStatus: 'INVALID',
+        cryptographicVerification: { signatureValid: false, algorithm: detectedAlgorithm },
+      };
     }
 
-    const expectedSignature = this.generateCredentialSignature(
-      issuerDid,
-      credData.subject_id || credData.subjectId,
-      credData.domain,
-      credData.credential_type || credData.credentialType,
-      credData.issuance_date || credData.issuanceDate,
-      credData.claims
-    );
+    // Step 1: Cryptographic signature verification FIRST
+    let verificationResult: any = null;
+    try {
+      verificationResult = await agent.verifyCredential({ credential: rawJwt });
+    } catch (verifyErr: any) {
+      return {
+        valid: false,
+        reason: `signature invalid: ${verifyErr.message}`,
+        applicationStatus: 'INVALID',
+        cryptographicVerification: { signatureValid: false, algorithm: detectedAlgorithm },
+      };
+    }
 
-    const signatureValid = credData.issuer_signature === expectedSignature || credData.issuerSignature === expectedSignature;
+    // Detect actual verified key algorithm and curve from Veramo signer
+    if (verificationResult?.signer?.publicKeyJwk?.alg) {
+      const crv = verificationResult.signer.publicKeyJwk.crv;
+      const alg = verificationResult.signer.publicKeyJwk.alg;
+      detectedAlgorithm = crv ? `${crv}-${alg}` : alg;
+    }
 
-    const overallValid = !isRevoked && !isExpired && signatureValid && credData.status === 'VALID';
+    if (!verificationResult || !verificationResult.verified) {
+      return {
+        valid: false,
+        reason: 'signature invalid',
+        applicationStatus: 'INVALID',
+        cryptographicVerification: {
+          signatureValid: false,
+          algorithm: detectedAlgorithm,
+          error: verificationResult?.error?.message,
+        },
+      };
+    }
+
+    // Step 2: Extract signed ID & issuer DID from verified VC ONLY (never trusting client input)
+    const verifiedVc = verificationResult.verifiableCredential;
+    const signedIdUri: string = verifiedVc.id || '';
+    const extractedDbId = signedIdUri.replace(/^urn:uuid:/, '');
+    const issuerDid: string = typeof verifiedVc.issuer === 'string' ? verifiedVc.issuer : verifiedVc.issuer?.id;
+
+    // Step 3: Fetch credential record from credentials table using extractedDbId ONLY
+    const { data: credRecord } = await supabaseAdmin
+      .from('credentials')
+      .select('*')
+      .eq('id', extractedDbId)
+      .maybeSingle();
+
+    if (!credRecord) {
+      return {
+        valid: false,
+        reason: 'credential record not found in issuer archive',
+        applicationStatus: 'NOT_FOUND',
+        cryptographicVerification: { signatureValid: true, algorithm: detectedAlgorithm },
+      };
+    }
+
+    // Step 4: Check Trust Registry for issuer DID
+    const { data: trustEntry } = await supabaseAdmin
+      .from('trust_registry')
+      .select('*, organization:organizations(id, name, code, domain, did, is_issuer, verification_status)')
+      .eq('issuer_identifier', issuerDid)
+      .maybeSingle();
+
+    if (!trustEntry || trustEntry.trust_status !== 'VERIFIED') {
+      return {
+        valid: false,
+        reason: trustEntry?.trust_status === 'SUSPENDED' ? 'issuer suspended' : 'issuer not trusted',
+        applicationStatus: 'REJECTED',
+        cryptographicVerification: { signatureValid: true, algorithm: detectedAlgorithm },
+        trustRegistryCheck: { isTrusted: false, status: trustEntry?.trust_status || 'UNREGISTERED' },
+      };
+    }
+
+    // Step 4b: Domain accreditation enforcement — issuer must be accredited for THIS credential's domain.
+    // If trust registry entry has no domain metadata or does not match credRecord.domain, treat as failed check.
+    const accreditedFor: string | undefined = trustEntry.verification_metadata?.accredited_for;
+    if (!accreditedFor || accreditedFor !== credRecord.domain) {
+      return {
+        valid: false,
+        reason: 'issuer not accredited for this domain',
+        applicationStatus: 'REJECTED',
+        cryptographicVerification: { signatureValid: true, algorithm: detectedAlgorithm },
+        trustRegistryCheck: {
+          isTrusted: false,
+          status: trustEntry.trust_status,
+          accreditedFor: accreditedFor || null,
+          requiredDomain: credRecord.domain,
+        },
+      };
+    }
+
+    // Step 5: Check lifecycle / revocation in credentials table
+    const isRevoked = credRecord.status === 'REVOKED';
+    const isExpired = credRecord.expiration_date ? new Date(credRecord.expiration_date) < new Date() : false;
+
+    if (isRevoked) {
+      const revMeta = await this.getRevocationMetadata(credRecord.id);
+      return {
+        valid: false,
+        reason: 'credential revoked',
+        applicationStatus: 'REVOKED',
+        cryptographicVerification: { signatureValid: true, algorithm: detectedAlgorithm },
+        revocationDetails: { isRevoked: true, reason: revMeta.reason, revokedAt: revMeta.revokedAt },
+      };
+    }
+
+    if (isExpired) {
+      return {
+        valid: false,
+        reason: 'credential expired',
+        applicationStatus: 'EXPIRED',
+        cryptographicVerification: { signatureValid: true, algorithm: detectedAlgorithm },
+        expirationDetails: { isExpired: true, expirationDate: credRecord.expiration_date },
+      };
+    }
+
+    if (credRecord.status !== 'VALID') {
+      return {
+        valid: false,
+        reason: `credential status is ${credRecord.status}`,
+        applicationStatus: credRecord.status,
+        cryptographicVerification: { signatureValid: true, algorithm: detectedAlgorithm },
+      };
+    }
 
     return {
-      valid: overallValid,
-      applicationStatus: isRevoked ? 'REVOKED' : isExpired ? 'EXPIRED' : credData.status,
+      valid: true,
+      reason: null,
+      applicationStatus: 'VALID',
+      credentialId: extractedDbId,
+      credentialIdUri: signedIdUri,
+      issuerDid,
+      subjectId: credRecord.subject_id,
+      claims: verifiedVc.credentialSubject,
       cryptographicVerification: {
-        signatureValid,
-        algorithm: 'HMAC-SHA256',
+        signatureValid: true,
+        algorithm: detectedAlgorithm,
         verifiedAt: new Date().toISOString(),
       },
-      revocationDetails: {
-        isRevoked,
-        reason: revocationReason,
-        revokedAt,
+      trustRegistryCheck: {
+        isTrusted: true,
+        trustStatus: trustEntry.trust_status,
+        accreditedFor: trustEntry.verification_metadata?.accredited_for,
       },
-      expirationDetails: {
-        isExpired,
-        expirationDate: credData.expiration_date || null,
+      lifecycleDetails: {
+        status: 'VALID',
+        issuanceDate: credRecord.issuance_date,
+        expirationDate: credRecord.expiration_date,
       },
     };
   }

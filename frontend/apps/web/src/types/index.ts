@@ -1,7 +1,7 @@
 export type UserRole = 'COLLEGE' | 'BANK' | 'HOSPITAL' | 'EMPLOYER' | 'ADMIN' | 'CITIZEN';
 
 export type CredentialStatus = 'VALID' | 'REVOKED' | 'EXPIRED';
-export type OrgStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+export type OrgStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'DENIED';
 export type VerificationStatus = 'PENDING' | 'APPROVED' | 'DENIED' | 'REVOKED' | 'EXPIRED';
 
 export interface Organization {

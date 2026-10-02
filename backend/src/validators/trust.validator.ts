@@ -33,7 +33,9 @@ export const getTrustRegistryQuerySchema = z.object({
 
 export const comprehensiveVerifySchema = z.object({
   credentialId: z.string().uuid().optional(),
-  credentialPayload: z.record(z.string(), z.any()).optional(),
+  credentialPayload: z.union([z.string(), z.record(z.string(), z.any())]).optional(),
+  consentId: z.string().uuid().optional(),
+  verifierOrgId: z.string().uuid().optional(),
 });
 
 export type RegisterTrustIssuerInput = z.infer<typeof registerTrustIssuerSchema>;
