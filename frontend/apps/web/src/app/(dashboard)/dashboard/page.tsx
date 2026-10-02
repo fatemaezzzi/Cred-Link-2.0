@@ -52,6 +52,70 @@ export default function DashboardPage() {
   const loadDashboardData = React.useCallback(async () => {
     setIsLoading(true);
     try {
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('credlink_auth_token') : null;
+      const isDemoMode = !storedToken || storedToken === 'demo_token';
+
+      if (isDemoMode) {
+        // Use public demo data endpoint (no auth required)
+        try {
+          const demoRes = await apiClient.fetchDemoData();
+          if (demoRes.success && demoRes.data) {
+            const d = demoRes.data;
+            if (d.credentials && d.credentials.length > 0) {
+              const mappedCreds: CredentialItem[] = d.credentials.map((c: any) => ({
+                id: c.id,
+                credentialType: c.credentialType,
+                domain: (c.domain?.toUpperCase() as any) || 'CITIZEN',
+                subjectId: c.subjectId,
+                subjectName: c.subjectName || `Citizen ${(c.subjectId || '').substring(0, 6)}`,
+                issuerName: c.issuer?.name || currentUser.organizationName,
+                issuerDid: c.issuer?.did || currentUser.organizationDid,
+                issuanceDate: c.issuanceDate ? c.issuanceDate.split('T')[0] : new Date().toISOString().split('T')[0],
+                status: (c.status as CredentialStatus) || 'VALID',
+                claims: Array.isArray(c.claims)
+                  ? c.claims
+                  : c.claims && typeof c.claims === 'object'
+                    ? Object.entries(c.claims).map(([k, v]) => ({ key: k, label: k, value: String(v) }))
+                    : [],
+                qrPayload: c.qrPayload || `credlink://verify?vc=${c.id}`,
+              }));
+              setCredentials(mappedCreds);
+            } else {
+              setCredentials(MOCK_CREDENTIALS);
+            }
+
+            if (d.consents && d.consents.length > 0) {
+              const mappedConsents: VerificationRequest[] = d.consents.map((con: any) => ({
+                id: con.id,
+                requesterName: con.requestingOrgId || currentUser.organizationName,
+                requesterDomain: (con.domain?.toUpperCase() as any) || currentUser.role,
+                targetSubjectName: con.citizenId ? `Citizen ${con.citizenId.substring(0, 6)}` : 'Citizen Subject',
+                targetSubjectId: con.citizenId || 'N/A',
+                purpose: con.purpose,
+                requestedClaims: con.requestedClaims || [],
+                approvedClaims: con.approvedClaims || [],
+                status: con.status || 'PENDING',
+                createdAt: con.createdAt ? new Date(con.createdAt).toLocaleDateString() : 'Recent',
+                expiresAt: con.expiresAt ? new Date(con.expiresAt).toLocaleDateString() : 'N/A',
+              }));
+              setConsents(mappedConsents);
+            } else {
+              setConsents(MOCK_VERIFICATION_REQUESTS);
+            }
+            setIsLoading(false);
+            return;
+          }
+        } catch (demoErr) {
+          console.warn('Demo data endpoint unavailable, using mock fallback:', demoErr);
+        }
+        // If demo endpoint failed, use mock data
+        setCredentials(MOCK_CREDENTIALS);
+        setConsents(MOCK_VERIFICATION_REQUESTS);
+        setIsLoading(false);
+        return;
+      }
+
+      // Authenticated mode: use standard API calls
       const [credRes, consentRes] = await Promise.allSettled([
         apiClient.listCredentials(),
         apiClient.listConsents(),

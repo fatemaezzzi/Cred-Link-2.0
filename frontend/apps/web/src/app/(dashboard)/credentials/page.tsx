@@ -52,6 +52,43 @@ export default function CredentialsPage() {
     if (!currentUser) return;
     setIsLoading(true);
     try {
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('credlink_auth_token') : null;
+      const isDemoMode = !storedToken || storedToken === 'demo_token';
+
+      if (isDemoMode) {
+        try {
+          const demoRes = await apiClient.fetchDemoData();
+          if (demoRes.success && demoRes.data?.credentials && demoRes.data.credentials.length > 0) {
+            const mapped: CredentialItem[] = demoRes.data.credentials.map((c: any) => ({
+              id: c.id,
+              credentialType: c.credentialType,
+              domain: (c.domain?.toUpperCase() as UserRole) || 'CITIZEN',
+              subjectId: c.subjectId,
+              subjectName: c.subjectName || `Citizen ${(c.subjectId || '').substring(0, 6)}`,
+              issuerName: c.issuer?.name || currentUser.organizationName,
+              issuerDid: c.issuer?.did || currentUser.organizationDid,
+              issuanceDate: c.issuanceDate ? c.issuanceDate.split('T')[0] : new Date().toISOString().split('T')[0],
+              status: (c.status as CredentialStatus) || 'VALID',
+              claims: Array.isArray(c.claims)
+                ? c.claims
+                : c.claims && typeof c.claims === 'object'
+                  ? Object.entries(c.claims).map(([k, v]) => ({ key: k, label: k, value: String(v) }))
+                  : [],
+              qrPayload: c.qrPayload || `credlink://verify?vc=${c.id}`,
+            }));
+            setCredentials(mapped);
+            setIsLoading(false);
+            return;
+          }
+        } catch (demoErr) {
+          console.warn('Demo data endpoint unavailable for credentials:', demoErr);
+        }
+        setCredentials(MOCK_CREDENTIALS);
+        setIsLoading(false);
+        return;
+      }
+
+      // Authenticated mode
       const res = await apiClient.listCredentials();
       if (res.success && res.data?.credentials && res.data.credentials.length > 0) {
         const mapped: CredentialItem[] = res.data.credentials.map((c: CredentialRecord) => {

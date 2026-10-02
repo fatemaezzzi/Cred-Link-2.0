@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Menu, X, ArrowRight, Shield } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { CredLinkLogo } from '../ui/CredLinkLogo';
+import { PWAInstallInlineButton } from '../pwa/PWAInstallButton';
 
 export function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -35,6 +36,7 @@ export function LandingNavbar() {
 
         {/* Action Button */}
         <div className="hidden md:flex items-center gap-3">
+          <PWAInstallInlineButton />
           <Link href="/login">
             <Button variant="outline" size="sm" className="text-xs">
               Institutional Login

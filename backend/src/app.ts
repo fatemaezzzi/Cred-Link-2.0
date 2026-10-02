@@ -12,6 +12,7 @@ import consentRoutes from './routes/consent.routes';
 import trustRoutes from './routes/trust.routes';
 import verificationRoutes from './routes/verification.routes';
 import auditRoutes from './routes/audit.routes';
+import demoRoutes from './routes/demo.routes';
 import { notFoundHandler } from './middleware/notFound';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -64,6 +65,7 @@ app.use('/api/consents', consentRoutes);
 app.use('/api/trust-registry', trustRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/audit-logs', auditRoutes);
+app.use('/api/demo', demoRoutes);
 
 // Catch-all 404 handler
 app.use(notFoundHandler);
