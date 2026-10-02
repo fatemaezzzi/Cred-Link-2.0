@@ -1,15 +1,15 @@
 import crypto from 'crypto';
-import { supabaseAdmin } from '../config/supabase';
-import { env } from '../config/env';
-import { agent } from '../veramo/agent';
+import { supabaseAdmin } from '../config/supabase.js';
+import { env } from '../config/env.js';
+import { agent } from '../veramo/agent.js';
 import {
   RegisterTrustIssuerInput,
   UpdateTrustStatusInput,
   GetTrustRegistryQuery,
   ComprehensiveVerifyInput,
-} from '../validators/trust.validator';
-import { AppError } from '../types';
-import { AuthUser } from '../middleware/authMiddleware';
+} from '../validators/trust.validator.js';
+import { AppError } from '../types.js';
+import { AuthUser } from '../middleware/authMiddleware.js';
 
 export class TrustService {
   /**

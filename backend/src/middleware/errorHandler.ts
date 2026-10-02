@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { ApiResponse, AppError } from '../types';
-import { env } from '../config/env';
+import { ApiResponse, AppError } from '../types.js';
+import { env } from '../config/env.js';
 
 export const errorHandler: ErrorRequestHandler = (
   err: Error | AppError | ZodError,

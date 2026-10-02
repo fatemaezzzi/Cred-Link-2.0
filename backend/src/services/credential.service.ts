@@ -1,16 +1,16 @@
 import crypto from 'crypto';
-import { supabaseAdmin } from '../config/supabase';
-import { env } from '../config/env';
-import { agent } from '../veramo/agent';
-import { getIssuerDid } from '../veramo/issuer';
+import { supabaseAdmin } from '../config/supabase.js';
+import { env } from '../config/env.js';
+import { agent } from '../veramo/agent.js';
+import { getIssuerDid } from '../veramo/issuer.js';
 import {
   CreateCredentialInput,
   GetCredentialsQuery,
   RevokeCredentialInput,
   VerifyCredentialInput,
-} from '../validators/credential.validator';
-import { AppError } from '../types';
-import { AuthUser } from '../middleware/authMiddleware';
+} from '../validators/credential.validator.js';
+import { AppError } from '../types.js';
+import { AuthUser } from '../middleware/authMiddleware.js';
 
 export class CredentialService {
   /**

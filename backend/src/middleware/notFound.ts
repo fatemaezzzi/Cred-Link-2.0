@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { ApiResponse } from '../types';
+import { ApiResponse } from '../types.js';
 
 export const notFoundHandler = (req: Request, res: Response, _next: NextFunction): void => {
   const response: ApiResponse = {

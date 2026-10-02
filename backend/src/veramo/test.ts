@@ -1,4 +1,4 @@
-import { agent } from './agent';
+import { agent } from './agent.js';
 
 async function main() {
   const identifier = await agent.didManagerCreate();

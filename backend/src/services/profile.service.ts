@@ -1,6 +1,6 @@
-import { supabaseAdmin } from '../config/supabase';
-import { UpdateProfileInput } from '../validators/profile.validator';
-import { AppError } from '../types';
+import { supabaseAdmin } from '../config/supabase.js';
+import { UpdateProfileInput } from '../validators/profile.validator.js';
+import { AppError } from '../types.js';
 
 export class ProfileService {
   /**

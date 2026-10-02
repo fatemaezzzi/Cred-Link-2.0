@@ -1,13 +1,13 @@
 import { Response, NextFunction } from 'express';
-import { trustService } from '../services/trust.service';
+import { trustService } from '../services/trust.service.js';
 import {
   registerTrustIssuerSchema,
   updateTrustStatusSchema,
   getTrustRegistryQuerySchema,
   comprehensiveVerifySchema,
-} from '../validators/trust.validator';
-import { AuthenticatedRequest } from '../middleware/authMiddleware';
-import { ApiResponse } from '../types';
+} from '../validators/trust.validator.js';
+import { AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { ApiResponse } from '../types.js';
 
 export class TrustController {
   /**

@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { checkDatabaseHealth } from '../config/supabase';
-import { HealthCheckResponse } from '../types';
+import { checkDatabaseHealth } from '../config/supabase.js';
+import { HealthCheckResponse } from '../types.js';
 
 const router = Router();
 

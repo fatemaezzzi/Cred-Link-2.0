@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { agent } from './agent';
-import { env } from '../config/env';
-import { supabaseAdmin } from '../config/supabase';
+import { agent } from './agent.js';
+import { env } from '../config/env.js';
+import { supabaseAdmin } from '../config/supabase.js';
 
 let cachedIssuerOrg: any = null;
 

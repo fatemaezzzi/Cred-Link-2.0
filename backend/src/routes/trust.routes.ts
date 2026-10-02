@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { trustController } from '../controllers/trust.controller';
-import { authenticateUser } from '../middleware/authMiddleware';
+import { trustController } from '../controllers/trust.controller.js';
+import { authenticateUser } from '../middleware/authMiddleware.js';
 
 const router = Router();
 

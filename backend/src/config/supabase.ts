@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { env } from './env';
+import { env } from './env.js';
 
 // Public/Anon client for unprivileged or standard user operations
 export const supabaseClient: SupabaseClient = createClient(
