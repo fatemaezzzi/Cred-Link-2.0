@@ -2,6 +2,7 @@
   "name": "credlink-backend",
   "version": "1.0.0",
   "description": "CredLink Verifiable Credentials Backend REST API",
+  "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -19,6 +20,15 @@
   "license": "ISC",
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
+    "@veramo/core": "^7.0.2",
+    "@veramo/credential-jwt": "^7.0.2",
+    "@veramo/credential-w3c": "^7.0.2",
+    "@veramo/data-store": "^7.0.2",
+    "@veramo/did-manager": "^7.0.2",
+    "@veramo/did-provider-key": "^7.0.2",
+    "@veramo/did-resolver": "^7.0.2",
+    "@veramo/key-manager": "^7.0.2",
+    "@veramo/kms-local": "^7.0.2",
     "cors": "^2.8.6",
     "dotenv": "^18.0.4",
     "express": "^5.2.1",
@@ -31,6 +41,7 @@
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
     "@types/node": "^26.6.3",
+    "@veramo/cli": "^7.0.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

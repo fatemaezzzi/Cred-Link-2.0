@@ -56,7 +56,8 @@ export function getOrgStatusBadge(status: OrgStatus) {
       return { label: 'Authorized Issuer', bg: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' };
     case 'SUSPENDED':
     case 'REJECTED':
-      return { label: 'Suspended / Rejected', bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200 dark:border-rose-800' };
+    case 'DENIED':
+      return { label: status === 'DENIED' ? 'Denied' : 'Suspended / Rejected', bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-rose-200 dark:border-rose-800' };
     case 'PENDING':
       return { label: 'Pending Approval', bg: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border-amber-200 dark:border-amber-800' };
     default:

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
@@ -126,8 +127,14 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Security Notice Footer */}
-          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+          {/* Footer */}
+          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center space-y-3">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Don&apos;t have an account?{' '}
+              <Link href="/register" className="font-medium text-slate-900 dark:text-slate-100 hover:underline">
+                Register
+              </Link>
+            </p>
             <Badge variant="neutral" size="sm" className="text-xs uppercase font-mono tracking-wider">
               PROTECTED — SUPABASE AUTH JWT SESSION
             </Badge>
