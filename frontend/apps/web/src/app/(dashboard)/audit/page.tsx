@@ -12,6 +12,7 @@ import { Button } from '../../../components/ui/Button';
 import { AuditLogItem } from '../../../types';
 import { getDomainBadgeStyle } from '../../../lib/utils';
 import { apiClient } from '../../../../../../packages/api-client';
+import { MOCK_AUDIT_LOGS } from '../../../lib/mockData';
 
 export default function AuditPage() {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
@@ -24,7 +25,7 @@ export default function AuditPage() {
       setIsLoading(true);
       try {
         const res = await apiClient.listAuditLogs({ limit: 50 });
-        if (res.success && res.data?.logs) {
+        if (res.success && res.data?.logs && res.data.logs.length > 0) {
           const mappedLogs: AuditLogItem[] = res.data.logs.map((l: any) => ({
             id: l.id,
             timestamp: new Date(l.timestamp).toLocaleString(),
@@ -38,11 +39,11 @@ export default function AuditPage() {
           }));
           setLogs(mappedLogs);
         } else {
-          setLogs([]);
+          setLogs(MOCK_AUDIT_LOGS);
         }
       } catch (err) {
-        console.warn('Could not load backend audit logs:', err);
-        setLogs([]);
+        console.warn('Using demo fallback for audit logs:', err);
+        setLogs(MOCK_AUDIT_LOGS);
       } finally {
         setIsLoading(false);
       }

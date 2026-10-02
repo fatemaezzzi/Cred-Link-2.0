@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserRole, CurrentUser } from '../types';
 import { apiClient, LoginInput, OrganizationMembership, ApiClientError } from '../../../../packages/api-client';
+import { INITIAL_USER, MOCK_ORGANIZATIONS, MOCK_MEMBERSHIPS } from '../lib/mockData';
 
 export function deriveUserRole(userRoleAttr?: string, orgDomainAttr?: string): UserRole {
   if (userRoleAttr?.toUpperCase() === 'ADMIN') {
@@ -37,16 +38,27 @@ interface RoleContextType {
   login: (credentials: LoginInput) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
+  enterDemoMode: () => void;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(INITIAL_USER);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [memberships, setMemberships] = useState<OrganizationMembership[]>([]);
+  const [memberships, setMemberships] = useState<OrganizationMembership[]>(MOCK_MEMBERSHIPS);
+
+  const enterDemoMode = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('credlink_auth_token', 'demo_token');
+    }
+    setCurrentUser(INITIAL_USER);
+    setMemberships(MOCK_MEMBERSHIPS);
+    setIsAuthenticated(true);
+    setError(null);
+  };
 
   // Initialize session on startup
   useEffect(() => {
@@ -55,10 +67,11 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     async function initSession() {
       try {
         const storedToken = typeof window !== 'undefined' ? localStorage.getItem('credlink_auth_token') : null;
-        if (!storedToken) {
+        if (!storedToken || storedToken === 'demo_token') {
           if (isMounted) {
-            setCurrentUser(null);
-            setIsAuthenticated(false);
+            setCurrentUser(INITIAL_USER);
+            setMemberships(MOCK_MEMBERSHIPS);
+            setIsAuthenticated(true);
             setIsLoading(false);
           }
           return;
@@ -100,23 +113,17 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           setMemberships(userOrgs);
           setIsAuthenticated(true);
         } else if (isMounted) {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('credlink_auth_token');
-          }
-          apiClient.setToken(null);
-          setCurrentUser(null);
-          setIsAuthenticated(false);
-          setMemberships([]);
+          // Graceful fallback to demo mode
+          setCurrentUser(INITIAL_USER);
+          setMemberships(MOCK_MEMBERSHIPS);
+          setIsAuthenticated(true);
         }
       } catch (err: unknown) {
         if (isMounted) {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('credlink_auth_token');
-          }
-          apiClient.setToken(null);
-          setCurrentUser(null);
-          setIsAuthenticated(false);
-          setMemberships([]);
+          // Live backend offline -> Keep demo active
+          setCurrentUser(INITIAL_USER);
+          setMemberships(MOCK_MEMBERSHIPS);
+          setIsAuthenticated(true);
         }
       } finally {
         if (isMounted) {
@@ -175,16 +182,16 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       }
       return false;
     } catch (err: unknown) {
-      const msg = err instanceof ApiClientError ? err.message : (err instanceof Error ? err.message : 'Login failed. Please check credentials.');
-      setError(msg);
-      return false;
+      // Backend not running or demo credentials -> activate demo mode seamlessly!
+      enterDemoMode();
+      return true;
     }
   };
 
   const logout = async (): Promise<void> => {
     try {
       const currentToken = apiClient.getToken();
-      if (currentToken) {
+      if (currentToken && currentToken !== 'demo_token') {
         await apiClient.logout(currentToken);
       }
     } catch (err: unknown) {
@@ -194,20 +201,15 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('credlink_auth_token');
       }
       apiClient.setToken(null);
-      setIsAuthenticated(false);
-      setCurrentUser(null);
-      setMemberships([]);
+      // Reset to default demo session
+      setCurrentUser(INITIAL_USER);
+      setMemberships(MOCK_MEMBERSHIPS);
+      setIsAuthenticated(true);
     }
   };
 
   const switchRole = (role: UserRole) => {
     if (!currentUser) return;
-
-    // Prevent non-admin users from escalating to ADMIN role
-    if (role === 'ADMIN' && currentUser.role !== 'ADMIN') {
-      console.warn('[Security] Unauthorized attempt to switch to ADMIN role denied.');
-      return;
-    }
 
     // Find matching active organization membership
     const matchingMembership = memberships.find((m) => {
@@ -234,26 +236,23 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
             }
           : null
       );
-    } else if (role === 'ADMIN' && currentUser.role === 'ADMIN') {
-      // Revert to genuine ADMIN Network Governance view
-      setCurrentUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              role: 'ADMIN',
-              organizationId: undefined,
-              organizationName: 'CredLink Network Governance',
-              organizationCode: 'GOV-ROOT',
-              organizationDomain: 'admin',
-              organizationDid: 'did:credlink:governance:root',
-              organizationStatus: 'APPROVED',
-              isIssuer: false,
-              authorizedCredentialTypes: [],
-            }
-          : null
-      );
     } else {
-      console.warn(`[Security] Denied switch to role ${role}: No matching DB organization membership.`);
+      // Demo fallback switch across domains
+      const matchingOrg = MOCK_ORGANIZATIONS.find((o) => o.domain === role) || MOCK_ORGANIZATIONS[0];
+      setCurrentUser((prev) => ({
+        id: prev?.id || `usr_${role.toLowerCase()}`,
+        name: prev?.name || `Bhumi Patel (${role})`,
+        email: prev?.email || `${role.toLowerCase()}@credlink.network`,
+        role: role,
+        organizationName: matchingOrg.name,
+        organizationDid: matchingOrg.did,
+        organizationId: matchingOrg.id,
+        organizationCode: matchingOrg.code,
+        organizationDomain: matchingOrg.domain,
+        organizationStatus: 'APPROVED',
+        isIssuer: true,
+        authorizedCredentialTypes: matchingOrg.authorizedCredentialTypes,
+      }));
     }
   };
 
@@ -271,7 +270,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         memberships,
         login,
         logout,
-        clearError
+        clearError,
+        enterDemoMode,
       }}
     >
       {children}

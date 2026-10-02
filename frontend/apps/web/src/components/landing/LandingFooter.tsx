@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Shield } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import { CredLinkLogo } from '../ui/CredLinkLogo';
 
 export function LandingFooter() {
   return (
@@ -11,11 +12,8 @@ export function LandingFooter() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-forest-800 text-white flex items-center justify-center font-bold text-sm">
-                CL
-              </div>
-              <span className="text-base font-bold text-white tracking-tight">CredLink Network</span>
+            <Link href="/" className="flex items-center group">
+              <CredLinkLogo size="sm" showText subtitle="Cross-Domain Digital Identity Network" />
             </Link>
             <p className="text-sm text-slate-400 max-w-md leading-relaxed">
               Cross-domain verifiable digital identity and record network connecting education, employment, financial services, and healthcare.

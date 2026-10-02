@@ -20,6 +20,7 @@ import {
 import { cn, getDomainBadgeStyle } from '../../lib/utils';
 import { useRoleContext } from '../../hooks/useRoleContext';
 import { Badge } from '../ui/Badge';
+import { CredLinkLogo } from '../ui/CredLinkLogo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -66,19 +67,8 @@ export function Sidebar({ isOpen, onCloseMobile }: SidebarProps) {
     >
       {/* Brand Header */}
       <div className="h-16 px-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-        <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-forest-800 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold text-sm shadow-xs transition-transform group-hover:scale-105">
-            CL
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-1.5">
-              CredLink
-              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                v1.0
-              </span>
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Verifiable Identity Network</p>
-          </div>
+        <Link href="/dashboard" className="flex items-center group">
+          <CredLinkLogo size="sm" showText subtitle="Verifiable Identity Network" />
         </Link>
       </div>
 

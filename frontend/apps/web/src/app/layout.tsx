@@ -5,6 +5,11 @@ import { RoleProvider } from '../hooks/useRoleContext';
 export const metadata: Metadata = {
   title: 'CredLink — Unified Digital Identity & Record Network',
   description: 'Citizen-centric cross-domain digital identity & verifiable credential management platform.',
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/logo.jpg',
+    apple: '/logo.jpg',
+  },
 };
 
 export default function RootLayout({

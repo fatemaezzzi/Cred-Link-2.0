@@ -1,5 +1,8 @@
-# CredLink 2.0
-### Unified Life-Stage Digital Identity & Record Network
+<div align="center">
+  <img src="./assets/logo.jpg" alt="CredLink Logo" width="120" style="border-radius: 16px;" />
+  <h1>CredLink</h1>
+  <p><em>Unified Life-Stage Digital Identity & Record Network</em></p>
+</div>
 
 **CredLink** is a digital credential infrastructure platform designed to simplify how academic and institutional records are issued, stored, shared, and verified across organizations.
 
@@ -343,5 +346,5 @@ CredLink aims to provide an interoperable foundation for trusted digital records
 
 **Repository:** [github.com/bhumii-10/CredLink-2.0](https://github.com/bhumii-10/CredLink-2.0)
 
-**Project:** CredLink 2.0  
+**Project:** CredLink  
 **Category:** Digital Identity · Verifiable Credentials · Digital Public Infrastructure · Identity & Verification

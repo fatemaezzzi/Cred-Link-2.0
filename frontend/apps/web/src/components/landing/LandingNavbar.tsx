@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Menu, X, ArrowRight, Shield } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { CredLinkLogo } from '../ui/CredLinkLogo';
 
 export function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -12,19 +13,8 @@ export function LandingNavbar() {
     <header className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-forest-800 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold text-sm shadow-xs transition-transform group-hover:scale-105">
-            CL
-          </div>
-          <div className="flex flex-col">
-            <span className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-1.5">
-              CredLink
-              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-forest-100 text-forest-800 dark:bg-forest-900 dark:text-forest-200">
-                Network
-              </span>
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 -mt-0.5">Life-Stage Digital Identity</span>
-          </div>
+        <Link href="/" className="flex items-center group">
+          <CredLinkLogo size="sm" showText />
         </Link>
 
         {/* Desktop Nav Links */}
