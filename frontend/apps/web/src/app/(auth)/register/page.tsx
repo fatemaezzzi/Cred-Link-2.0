@@ -7,6 +7,7 @@ import { ArrowRight, ArrowLeft, Building2, UserPlus, CheckCircle2 } from 'lucide
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Badge } from '../../../components/ui/Badge';
+import { CredLinkLogo } from '../../../components/ui/CredLinkLogo';
 import { apiClient } from '../../../../../../packages/api-client';
 
 type AccountRole = 'CITIZEN' | 'COLLEGE' | 'HOSPITAL' | 'BANK' | 'EMPLOYER';
@@ -140,8 +141,8 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] flex flex-col justify-center py-12 sm:px-6 lg:px-8 antialiased">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold text-lg mb-4 shadow-sm">
-          CL
+        <div className="flex justify-center mb-4">
+          <CredLinkLogo size="lg" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
           Create Account

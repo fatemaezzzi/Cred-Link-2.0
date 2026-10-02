@@ -14,35 +14,31 @@ export interface ShellProps {
 
 export function Shell({ children }: ShellProps) {
   const router = useRouter();
-  const { isAuthenticated, isLoading, currentUser } = useRoleContext();
+  const { isAuthenticated, isLoading, currentUser, enterDemoMode } = useRoleContext();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<Omit<ToastProps, 'onClose'>[]>([]);
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !currentUser)) {
-      router.push('/login');
+      enterDemoMode();
     }
-  }, [isLoading, isAuthenticated, currentUser, router]);
+  }, [isLoading, isAuthenticated, currentUser, enterDemoMode]);
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  if (isLoading) {
+  if (isLoading || !isAuthenticated || !currentUser) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#090D16] flex items-center justify-center p-4 antialiased">
         <div className="flex flex-col items-center gap-3">
           <CredLinkLogo size="md" className="animate-pulse" />
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Authenticating CredLink Session...
+            Loading CredLink Portal...
           </p>
         </div>
       </div>
     );
-  }
-
-  if (!isAuthenticated || !currentUser) {
-    return null;
   }
 
   return (
